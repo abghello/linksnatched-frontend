@@ -64,7 +64,7 @@ const getLink = async (req, res, next) => {
     } else {
       return next({
         code: StatusCodes.NOT_FOUND,
-        message: 'Line is not found',
+        message: 'Link is not found',
       });
     }
   } catch (err) {
@@ -129,7 +129,7 @@ const updateLink = async (req, res, next) => {
     } else {
       return next({
         code: StatusCodes.NOT_FOUND,
-        message: 'Line is not found',
+        message: 'Link is not found',
       });
     }
   } catch (err) {
@@ -158,7 +158,7 @@ const updateLinkTags = async (req, res, next) => {
     } else {
       return next({
         code: StatusCodes.NOT_FOUND,
-        message: 'Line is not found',
+        message: 'Link is not found',
       });
     }
   } catch (err) {
@@ -204,6 +204,51 @@ const deleteLink = async (req, res, next) => {
   }
 };
 
+const getLinksByUrl = async (req, res, next) => {
+  try {
+    const supabase = getSupabaseClient();
+
+    // Decode the URL parameter
+    let encodedUrl = req.params.url.replace(/-/g, '+').replace(/_/g, '/');
+
+    // Add padding if needed
+    while (encodedUrl.length % 4) {
+      encodedUrl += '=';
+    }
+    const decodedUrl = atob(encodedUrl);
+
+    const { data, error } = await supabase
+      .from('links')
+      .select()
+      .eq('given_url', decodedUrl)
+      .eq('user_id', req.user.id);
+
+    if (error) {
+      return next({
+        code: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: 'Database error',
+        data: [],
+      });
+    }
+
+    if (data && data.length > 0) {
+      return res.json({ code: StatusCodes.OK, data, message: 'success' });
+    } else {
+      return res.json({
+        code: StatusCodes.OK,
+        data: [],
+        message: 'Link is not found',
+      });
+    }
+  } catch (err) {
+    console.log('getLinksByUrl error:', err);
+    return next({
+      code: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: 'Internal Server Error',
+    });
+  }
+};
+
 const validate = (method) => {
   switch (method) {
     case 'create':
@@ -215,7 +260,7 @@ const validate = (method) => {
   }
 };
 
-const lineController = {
+const linkController = {
   getLinks,
   getLink,
   createLink,
@@ -223,6 +268,7 @@ const lineController = {
   updateLinkTags,
   validate,
   deleteLink,
+  getLinksByUrl,
 };
 
-module.exports = lineController;
+module.exports = linkController;

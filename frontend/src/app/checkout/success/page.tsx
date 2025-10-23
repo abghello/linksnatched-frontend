@@ -1,7 +1,7 @@
-import { stripe } from '@/lib/stripe';
-import React, { startTransition } from 'react';
-import { redirect } from 'next/navigation';
-import { SuccessClient } from './success-client';
+import { stripe } from "@/lib/stripe";
+import React, { startTransition } from "react";
+import { redirect } from "next/navigation";
+import { SuccessClient } from "./success-client";
 
 export default async function SuccessPage({
   searchParams,
@@ -10,18 +10,18 @@ export default async function SuccessPage({
 }) {
   const { payment_intent: paymentIntentId } = await searchParams;
 
-  if (!paymentIntentId) redirect('/');
+  if (!paymentIntentId) redirect("/");
 
   const paymentIntent = await stripe.paymentIntents.retrieve(
     paymentIntentId as string
   );
-  if (!paymentIntent) redirect('/');
+  if (!paymentIntent) redirect("/");
 
   const { status } = paymentIntent;
 
-  if (status === 'succeeded') {
+  if (status === "succeeded") {
     return (
-      <div className='min-h-screen flex items-center justify-center p-4'>
+      <div className="min-h-screen flex items-center justify-center p-4">
         <SuccessClient status={status} />
       </div>
     );

@@ -178,6 +178,7 @@ const ContentApp = ({
         const { item } = payload;
         setItemId(item === null || item === void 0 ? void 0 : item.itemId);
         setItemPreview(item);
+        setTags(item.tags);
         return;
       }
 

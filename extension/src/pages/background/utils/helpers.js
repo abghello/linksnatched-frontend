@@ -33,6 +33,7 @@ function deriveItemData(item) {
     title: displayTitle(item),
     thumbnail: displayThumbnail(item),
     publisher: displayPublisher(item),
+    tags: item.tags?.split(', ') || [],
   };
 }
 /** TITLE

@@ -57,6 +57,25 @@ function saveToLinksnatched(saveObject) {
   });
 }
 
+async function getLinksByUrl(url) {
+  const encodedUrl = btoa(url)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+  return request({
+    path: `/api/v1/link/url/${encodedUrl}`,
+    method: 'GET',
+  }).then((response) => {
+    return response
+      ? {
+          status: response.code,
+          message: response.message,
+          data: response.data,
+        }
+      : undefined;
+  });
+}
+
 /* API CALLS - Should return promises
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 
@@ -203,13 +222,22 @@ async function save({ linkUrl, pageUrl, title, tabId }) {
         title,
         tabId,
       });
+
     const url = linkUrl || pageUrl;
 
-    // const { data: links } = await checkIfSaved(url);
-    // if (links.length > 0) {
-    //   setToolbarIcon(tabId, true);
-    //   return;
-    // }
+    const getLinksResponse = await getLinksByUrl(url);
+    if (getLinksResponse.data.length > 0) {
+      const message = {
+        action: SAVE_TO_LINKSNATCHED_SUCCESS,
+        payload: {},
+      };
+      chrome.tabs.sendMessage(tabId, message);
+      saveSuccess(tabId, {
+        ...getLinksResponse.data[0],
+        isLink: Boolean(linkUrl),
+      });
+      return;
+    }
 
     const response = await saveToLinksnatched({
       url,
@@ -301,25 +329,6 @@ async function tagsSyncAction(tab, payload) {
   chrome.tabs.sendMessage(tabId, message);
 }
 
-/* Check if it's saved in Linksnatched
-–––––––––––––––––––––––––––––––––––––––––––––––––– */
-function checkIfSaved(url) {
-  const query = new URLSearchParams({ url }).toString();
-
-  return request({
-    path: `/api/v1/link?${query}`,
-    method: 'GET',
-  }).then((response) => {
-    return response
-      ? {
-          status: response.code,
-          message: response.message,
-          data: response.data,
-        }
-      : undefined;
-  });
-}
-
 var postAuthSave = null;
 /* Helper Functions
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
@@ -348,7 +357,7 @@ async function request(options, authToken) {
 }
 
 function handleErrors(response) {
-  if (response.status !== 200)
+  if (response.status !== 200 && response.status !== 304)
     return Promise.reject({
       status: response.status,
       message: 'Request failed',
@@ -437,7 +446,7 @@ async function authCodeRecieved(tab, payload) {
     });
   }
 
-  closeLoginPage();
+  // closeLoginPage();
   setContextMenus();
   if (postAuthSave) save(postAuthSave);
   postAuthSave = null;
@@ -495,11 +504,54 @@ function browserAction(tab) {
 /* Tab Changes
 –––––––––––––––––––––––––––––––––––––––––––––––––– */
 
-function tabUpdated(tabId, changeInfo) {
-  if (changeInfo.status === 'loading' && changeInfo.url) {
+async function tabUpdated(tabId, changeInfo, tab) {
+  if (changeInfo.status === 'loading') {
     // if actively loading a new page, unset save state on icon
     setToolbarIcon(tabId, false);
   }
+
+  if (changeInfo.status === 'complete') {
+    // Get the URL - try multiple sources
+    let url = changeInfo.url;
+
+    if (!url) {
+      // Fallback: get URL from tab
+      chrome.tabs.get(tabId, (tab) => {
+        if (tab && tab.url) {
+          handlePageLoaded(tabId, tab.url);
+        }
+      });
+    } else {
+      handlePageLoaded(tabId, url);
+    }
+  }
+}
+
+function handlePageLoaded(tabId, url) {
+  // Skip invalid URLs
+  if (
+    !url ||
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('about:')
+  ) {
+    console.log('Skipping invalid URL:', url);
+    return;
+  }
+
+  // Example: Check if the page is already saved
+  getLinksByUrl(url)
+    .then((response) => {
+      if (response && response.data && response.data.length > 0) {
+        setToolbarIcon(tabId, true);
+      } else {
+        setToolbarIcon(tabId, false);
+      }
+    })
+    .catch((error) => {
+      console.error('Error checking if page is saved:', error);
+      setToolbarIcon(tabId, false);
+    });
 }
 
 /* Theme Changes
@@ -518,7 +570,6 @@ chrome.runtime.onMessageExternal.addListener(
 
     switch (type) {
       case AUTH_CODE_RECEIVED:
-        console.dir(message);
         authCodeRecieved(tab, payload);
         sendResponse({ message: 'OK' });
         return true;

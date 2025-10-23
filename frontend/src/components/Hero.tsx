@@ -14,7 +14,7 @@ import {
   VisibilityState,
 } from '@tanstack/react-table';
 import { ArrowUpDown, ChevronDown } from 'lucide-react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -33,7 +33,7 @@ import {
 import { useAuthContext } from '@/auth/hooks/use-auth-context';
 import { getLinks } from '@/actions/links';
 import { ILink } from '@/types';
-import { Pricing } from '@/components/Pricing';
+import { format } from 'date-fns';
 
 const columns: ColumnDef<ILink>[] = [
   {
@@ -188,13 +188,20 @@ const columns: ColumnDef<ILink>[] = [
       );
     },
     cell: ({ row }) => (
-      <div className='max-w-[200px] truncate'>{row.getValue('createdAt')}</div>
+      <div className='max-w-[200px] truncate'>
+        {format(row.getValue('createdAt'), 'MM/dd/yyyy hh:mm a')}
+      </div>
     ),
   },
 ];
 
 export const Hero = () => {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    {
+      id: 'createdAt',
+      desc: true,
+    },
+  ]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
