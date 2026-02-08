@@ -8,7 +8,10 @@ function buildSupabasePool(raw: string): pg.Pool {
   const userPass = raw.substring(protoEnd, atIdx);
   const colonIdx = userPass.indexOf(":");
   const user = userPass.substring(0, colonIdx);
-  const password = userPass.substring(colonIdx + 1);
+  let password = userPass.substring(colonIdx + 1);
+  if (password.startsWith("[") && password.endsWith("]")) {
+    password = password.slice(1, -1);
+  }
 
   const hostPart = raw.substring(atIdx + 1);
   const slashIdx = hostPart.indexOf("/");
