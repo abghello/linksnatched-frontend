@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import LandingPage from "@/pages/landing";
+import AuthPage from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
 import AppShell from "@/components/app-shell";
 import NotFound from "@/pages/not-found";
@@ -32,6 +33,7 @@ function Router() {
   if (!user) {
     return (
       <Switch>
+        <Route path="/auth" component={AuthPage} />
         <Route path="/" component={LandingPage} />
         <Route component={LandingPage} />
       </Switch>

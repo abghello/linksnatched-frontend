@@ -34,7 +34,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <a href="/api/login">
+            <a href="/auth">
               <Button data-testid="button-login">
                 Get Started
                 <ArrowRight className="ml-1 h-4 w-4" />
@@ -67,7 +67,7 @@ export default function LandingPage() {
                 Never lose an important link again. Linksnatched automatically captures, categorizes, and organizes all your web links in one beautiful dashboard.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-4">
-                <a href="/api/login">
+                <a href="/auth">
                   <Button size="lg" className="bg-gradient-to-r from-[#667EEA] to-[#764BA2] border-[#764BA2] text-white" data-testid="button-hero-login">
                     Start Snatching Links
                     <ArrowRight className="ml-2 h-4 w-4" />

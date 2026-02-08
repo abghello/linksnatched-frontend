@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, isLoggingOut } = useAuth();
+  const { user, isLoggingOut, logout } = useAuth();
 
   const displayName = user?.name || "User";
   const initials = displayName
@@ -58,15 +58,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <a href="/api/logout" className="flex items-center gap-2 cursor-pointer" data-testid="button-logout">
-                  {isLoggingOut ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <LogOut className="h-4 w-4" />
-                  )}
-                  Sign out
-                </a>
+              <DropdownMenuItem
+                onClick={() => logout()}
+                className="flex items-center gap-2 cursor-pointer"
+                data-testid="button-logout"
+              >
+                {isLoggingOut ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
