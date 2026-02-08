@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isResetMode, setIsResetMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -51,11 +52,34 @@ export default function AuthPage() {
     },
   });
 
-  const isPending = loginMutation.isPending || signupMutation.isPending;
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/reset-password", { email });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Reset email sent",
+        description: data.message || "Check your inbox for a password reset link.",
+      });
+      setIsResetMode(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Reset failed",
+        description: error.message || "Could not send reset email",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isPending = loginMutation.isPending || signupMutation.isPending || resetMutation.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLogin) {
+    if (isResetMode) {
+      resetMutation.mutate();
+    } else if (isLogin) {
       loginMutation.mutate();
     } else {
       signupMutation.mutate();
@@ -83,10 +107,12 @@ export default function AuthPage() {
               <Link2 className="h-6 w-6 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isLogin ? "Welcome back" : "Create your account"}
+              {isResetMode ? "Reset your password" : isLogin ? "Welcome back" : "Create your account"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isLogin
+              {isResetMode
+                ? "Enter your email and we'll send you a reset link"
+                : isLogin
                 ? "Sign in to access your saved links"
                 : "Start organizing your links today"}
             </p>
@@ -95,7 +121,7 @@ export default function AuthPage() {
           <Card>
             <CardContent className="pt-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                {!isLogin && (
+                {!isLogin && !isResetMode && (
                   <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
                     <div className="relative">
@@ -128,23 +154,25 @@ export default function AuthPage() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      className="pl-10"
-                      data-testid="input-password"
-                    />
+                {!isResetMode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        className="pl-10"
+                        data-testid="input-password"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 <Button
                   type="submit"
                   className="w-full bg-gradient-to-r from-[#667EEA] to-[#764BA2] border-[#764BA2] text-white"
@@ -154,23 +182,49 @@ export default function AuthPage() {
                   {isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  {isLogin ? "Sign in" : "Create account"}
+                  {isResetMode ? "Send reset link" : isLogin ? "Sign in" : "Create account"}
                   {!isPending && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </form>
 
-              <div className="mt-6 text-center text-sm">
-                <span className="text-muted-foreground">
-                  {isLogin ? "Don't have an account? " : "Already have an account? "}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="font-medium text-[#667EEA] hover:underline"
-                  data-testid="button-toggle-auth-mode"
-                >
-                  {isLogin ? "Sign up" : "Sign in"}
-                </button>
+              {isLogin && !isResetMode && (
+                <div className="mt-4 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetMode(true)}
+                    className="text-sm font-medium text-[#667EEA] hover:underline"
+                    data-testid="button-cant-login"
+                  >
+                    Can't login?
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-4 text-center text-sm">
+                {isResetMode ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsResetMode(false)}
+                    className="font-medium text-[#667EEA] hover:underline"
+                    data-testid="button-back-to-login"
+                  >
+                    Back to sign in
+                  </button>
+                ) : (
+                  <>
+                    <span className="text-muted-foreground">
+                      {isLogin ? "Don't have an account? " : "Already have an account? "}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsLogin(!isLogin)}
+                      className="font-medium text-[#667EEA] hover:underline"
+                      data-testid="button-toggle-auth-mode"
+                    >
+                      {isLogin ? "Sign up" : "Sign in"}
+                    </button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
