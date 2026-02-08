@@ -1,30 +1,36 @@
 # Linksnatched
 
 ## Overview
-Linksnatched is a link management/bookmarking application. Users can save, organize, tag, and manage web links in a clean dashboard interface. Authentication is handled via Replit Auth (OpenID Connect). Database is hosted on Supabase.
+Linksnatched is a link management/bookmarking application. Users can save, organize, tag, and manage web links in a clean dashboard interface. Authentication is handled via Supabase Auth (email/password). Database is hosted on Supabase.
 
 ## Recent Changes
 - Initial build: Feb 2026
 - Migrated database from Replit built-in PostgreSQL to Supabase PostgreSQL
+- Migrated auth from Replit Auth (OpenID Connect) to Supabase Auth (email/password)
 - Schema matches Supabase tables: users (uuid id, email, name, role, plan, status), links (uuid id, user_id FK), subscriptions
-- Auth: Replit Auth maps users by email to Supabase users table (stores dbUserId in session)
-- Removed favorite functionality (not in Supabase schema)
+- Auth: Supabase Auth for email/password login, maps users by email to Supabase users table (stores dbUserId in session)
+- Frontend auth page at /auth with login/signup toggle
 - Frontend updated to use user.name instead of firstName/lastName
 
 ## Architecture
 - **Frontend**: React + Vite + Tailwind CSS + shadcn/ui, served on port 5000
 - **Backend**: Express.js API (same port via Vite middleware)
 - **Database**: Supabase PostgreSQL via Drizzle ORM (SUPABASE_DATABASE_URL secret)
-- **Auth**: Replit Auth (OpenID Connect) with session storage in Supabase PostgreSQL
-  - Users matched by email to Supabase users table
+- **Auth**: Supabase Auth (email/password) with session storage in Supabase PostgreSQL
+  - POST /api/auth/signup - create account via Supabase Auth + local users table
+  - POST /api/auth/login - authenticate via Supabase Auth, set express-session
+  - POST /api/auth/logout - destroy session
+  - GET /api/auth/user - get current user from DB (requires session)
   - Session stores `dbUserId` (Supabase UUID) for link operations
 - **Key Files**:
   - `shared/schema.ts` - Data models (links, subscriptions) + re-exports auth models
   - `shared/models/auth.ts` - Auth models (users, sessions) matching Supabase schema
   - `server/db.ts` - Database connection (uses SUPABASE_DATABASE_URL with SSL)
+  - `server/supabaseClient.ts` - Supabase client for auth (auto-resolves URL from DB connection)
   - `server/routes.ts` - API endpoints for links CRUD
   - `server/storage.ts` - Database CRUD operations for links
-  - `server/replit_integrations/auth/` - Auth module (storage, routes, replitAuth)
+  - `server/replit_integrations/auth/` - Auth module (storage, routes, session setup)
+  - `client/src/pages/auth.tsx` - Login/signup page with email/password
   - `client/src/pages/landing.tsx` - Landing page for unauthenticated users
   - `client/src/pages/dashboard.tsx` - Main dashboard with links table
   - `client/src/components/app-shell.tsx` - Authenticated layout with header
