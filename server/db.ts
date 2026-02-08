@@ -2,7 +2,7 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 
-function parseSupabaseUrl(raw: string) {
+function buildSupabasePool(raw: string): pg.Pool {
   const protoEnd = raw.indexOf("://") + 3;
   const atIdx = raw.lastIndexOf("@");
   const userPass = raw.substring(protoEnd, atIdx);
@@ -35,41 +35,41 @@ function parseSupabaseUrl(raw: string) {
     console.log("Converted Supabase direct host to pooler (us-east-2)");
   }
 
+  if (host.includes("pooler.supabase.com") && port === 5432) {
+    port = 6543;
+    console.log("Switched pooler to transaction mode port 6543");
+  }
+
   let finalUser = user;
   if (projectRef && !user.includes(".")) {
     finalUser = `${user}.${projectRef}`;
   }
 
-  return { host, port, user: finalUser, password, database };
-}
+  console.log(`Connecting to Supabase: ${finalUser}@${host}:${port}/${database}`);
 
-const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
-
-let supabasePool: pg.Pool | null = null;
-if (supabaseUrl) {
-  const params = parseSupabaseUrl(supabaseUrl);
-  supabasePool = new pg.Pool({
-    host: params.host,
-    port: params.port,
-    user: params.user,
-    password: params.password,
-    database: params.database,
+  return new pg.Pool({
+    host,
+    port,
+    user: finalUser,
+    password,
+    database,
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 15000,
     idleTimeoutMillis: 30000,
     max: 10,
   });
-  supabasePool.on("error", (err) => {
-    console.error("Supabase pool error:", err.message);
-  });
 }
 
-export const sessionPool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 30000,
-  max: 5,
+const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
+
+if (!supabaseUrl) {
+  throw new Error("SUPABASE_DATABASE_URL is required");
+}
+
+export const pool = buildSupabasePool(supabaseUrl);
+
+pool.on("error", (err) => {
+  console.error("Database pool error:", err.message);
 });
 
-export const pool = supabasePool || sessionPool;
 export const db = drizzle(pool, { schema });
