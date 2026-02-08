@@ -2,68 +2,74 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 
-let connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+function parseSupabaseUrl(raw: string) {
+  const protoEnd = raw.indexOf("://") + 3;
+  const atIdx = raw.lastIndexOf("@");
+  const userPass = raw.substring(protoEnd, atIdx);
+  const colonIdx = userPass.indexOf(":");
+  const user = userPass.substring(0, colonIdx);
+  const password = userPass.substring(colonIdx + 1);
 
-if (connectionString) {
-  const protoEnd = connectionString.indexOf("://") + 3;
-  const atIdx = connectionString.lastIndexOf("@");
+  const hostPart = raw.substring(atIdx + 1);
+  const slashIdx = hostPart.indexOf("/");
+  const hostPort = hostPart.substring(0, slashIdx);
+  const database = hostPart.substring(slashIdx + 1).split("?")[0] || "postgres";
 
-  if (atIdx > protoEnd) {
-    const userPass = connectionString.substring(protoEnd, atIdx);
-    const colonIdx = userPass.indexOf(":");
-    if (colonIdx !== -1) {
-      const user = userPass.substring(0, colonIdx);
-      const pass = userPass.substring(colonIdx + 1);
-      const encodedPass = encodeURIComponent(pass);
-      if (pass !== encodedPass) {
-        connectionString =
-          connectionString.substring(0, protoEnd) +
-          user +
-          ":" +
-          encodedPass +
-          connectionString.substring(atIdx);
-      }
-    }
+  let host: string;
+  let port: number;
+  const portColonIdx = hostPort.lastIndexOf(":");
+  if (portColonIdx !== -1) {
+    host = hostPort.substring(0, portColonIdx);
+    port = parseInt(hostPort.substring(portColonIdx + 1), 10);
+  } else {
+    host = hostPort;
+    port = 5432;
   }
 
-  const directHostMatch = connectionString.match(
-    /@db\.([a-z0-9]+)\.supabase\.co/
-  );
-  if (directHostMatch) {
-    const projectRef = directHostMatch[1];
-    connectionString = connectionString.replace(
-      /@db\.[a-z0-9]+\.supabase\.co/,
-      `@aws-0-us-east-1.pooler.supabase.com`
-    );
-    const beforeAt = connectionString.substring(0, connectionString.lastIndexOf("@"));
-    const userMatch = beforeAt.match(/:\/\/([^:]+)/);
-    if (userMatch && !userMatch[1].includes(".")) {
-      connectionString = connectionString.replace(
-        `://${userMatch[1]}:`,
-        `://${userMatch[1]}.${projectRef}:`
-      );
-    }
-    console.log("Converted direct host to Supabase pooler connection");
+  const directMatch = host.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+  let projectRef: string | null = null;
+  if (directMatch) {
+    projectRef = directMatch[1];
+    host = "aws-0-us-east-2.pooler.supabase.com";
+    port = 6543;
+    console.log("Converted Supabase direct host to pooler (us-east-2)");
   }
 
-  if (connectionString.includes("pooler.supabase.com") && connectionString.includes(":5432/")) {
-    connectionString = connectionString.replace(":5432/", ":6543/");
-    console.log("Switched to transaction pooler port 6543");
+  let finalUser = user;
+  if (projectRef && !user.includes(".")) {
+    finalUser = `${user}.${projectRef}`;
   }
+
+  return { host, port, user: finalUser, password, database };
 }
 
-const useSSL = !!process.env.SUPABASE_DATABASE_URL;
+const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
 
-export const pool = new pg.Pool({
-  connectionString,
-  ssl: useSSL ? { rejectUnauthorized: false } : undefined,
-  connectionTimeoutMillis: 15000,
+let supabasePool: pg.Pool | null = null;
+if (supabaseUrl) {
+  const params = parseSupabaseUrl(supabaseUrl);
+  supabasePool = new pg.Pool({
+    host: params.host,
+    port: params.port,
+    user: params.user,
+    password: params.password,
+    database: params.database,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 15000,
+    idleTimeoutMillis: 30000,
+    max: 10,
+  });
+  supabasePool.on("error", (err) => {
+    console.error("Supabase pool error:", err.message);
+  });
+}
+
+export const sessionPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
-  max: 10,
+  max: 5,
 });
 
-pool.on("error", (err) => {
-  console.error("Unexpected pool error:", err.message);
-});
-
+export const pool = supabasePool || sessionPool;
 export const db = drizzle(pool, { schema });
