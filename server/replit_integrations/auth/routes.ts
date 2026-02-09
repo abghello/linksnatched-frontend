@@ -90,7 +90,9 @@ export function registerAuthRoutes(app: Express): void {
         return res.status(400).json({ message: "Email is required" });
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${req.protocol}://${req.get("host")}/auth`,
+      });
 
       if (error) {
         return res.status(400).json({ message: error.message });
@@ -100,6 +102,37 @@ export function registerAuthRoutes(app: Express): void {
     } catch (error) {
       console.error("Password reset error:", error);
       res.status(500).json({ message: "Failed to send reset email" });
+    }
+  });
+
+  app.post("/api/auth/update-password", async (req, res) => {
+    try {
+      const { access_token, refresh_token, new_password } = req.body;
+      if (!access_token || !new_password) {
+        return res.status(400).json({ message: "Access token and new password are required" });
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token,
+        refresh_token: refresh_token || "",
+      });
+
+      if (sessionError) {
+        return res.status(400).json({ message: sessionError.message });
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: new_password,
+      });
+
+      if (updateError) {
+        return res.status(400).json({ message: updateError.message });
+      }
+
+      res.json({ message: "Password updated successfully. You can now sign in with your new password." });
+    } catch (error) {
+      console.error("Update password error:", error);
+      res.status(500).json({ message: "Failed to update password" });
     }
   });
 
