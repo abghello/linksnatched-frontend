@@ -36,8 +36,16 @@ Linksnatched is a link management/bookmarking application. Users can save, organ
   - `client/src/components/app-shell.tsx` - Authenticated layout with header
   - `client/src/components/theme-provider.tsx` - Dark/light mode support
 
+## Vercel Deployment
+- `api/index.ts` - Vercel serverless function wrapping Express app (all `/api/*` routes)
+- `vercel.json` - Build config, routing rewrites for API and SPA
+- Build outputs frontend to `dist/public/` (Vercel's `outputDirectory`)
+- Vercel environment variables needed: `SUPABASE_DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SESSION_SECRET`
+- Sessions stored in Supabase PostgreSQL via connect-pg-simple (works in serverless)
+
 ## User Preferences
 - Purple gradient branding (from-[#667EEA] to-[#764BA2])
 - Clean, modern UI with data table for links
 - Dark mode support
 - Supabase as database backend
+- Deploys to Vercel (GitHub repo: abghello/linksnatched-frontend)
