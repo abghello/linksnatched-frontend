@@ -3,17 +3,35 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+  const candidates = [
+    path.resolve(__dirname, "public"),
+    path.resolve(process.cwd(), "dist", "public"),
+    path.resolve(__dirname, "..", "dist", "public"),
+  ];
+
+  let distPath: string | null = null;
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      distPath = candidate;
+      break;
+    }
   }
 
+  if (!distPath) {
+    console.error(
+      `Could not find the build directory. Tried: ${candidates.join(", ")}. ` +
+      `__dirname=${__dirname}, cwd=${process.cwd()}`
+    );
+    app.use("/{*path}", (_req, res) => {
+      res.status(503).send("Application is starting up. Please try again shortly.");
+    });
+    return;
+  }
+
+  console.log(`Serving static files from: ${distPath}`);
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
   app.use("/{*path}", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(path.resolve(distPath!, "index.html"));
   });
 }

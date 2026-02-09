@@ -66,6 +66,7 @@ function buildSupabasePool(raw: string): pg.Pool {
 const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
 
 if (!supabaseUrl) {
+  console.error("FATAL: SUPABASE_DATABASE_URL is required. Current env keys:", Object.keys(process.env).filter(k => k.includes("SUPA") || k.includes("PG") || k.includes("DATABASE")).join(", "));
   throw new Error("SUPABASE_DATABASE_URL is required");
 }
 
