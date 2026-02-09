@@ -63,17 +63,58 @@ function buildSupabasePool(raw: string): pg.Pool {
   });
 }
 
-const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
+let _pool: pg.Pool | null = null;
+let _db: ReturnType<typeof drizzle> | null = null;
 
-if (!supabaseUrl) {
-  console.error("FATAL: SUPABASE_DATABASE_URL is required. Current env keys:", Object.keys(process.env).filter(k => k.includes("SUPA") || k.includes("PG") || k.includes("DATABASE")).join(", "));
-  throw new Error("SUPABASE_DATABASE_URL is required");
+function initPool(): pg.Pool {
+  if (_pool) return _pool;
+
+  const supabaseUrl = process.env.SUPABASE_DATABASE_URL;
+  if (!supabaseUrl) {
+    console.error(
+      "FATAL: SUPABASE_DATABASE_URL is required. Available env keys:",
+      Object.keys(process.env)
+        .filter((k) => k.includes("SUPA") || k.includes("PG") || k.includes("DATABASE"))
+        .join(", ")
+    );
+    throw new Error("SUPABASE_DATABASE_URL is required");
+  }
+
+  _pool = buildSupabasePool(supabaseUrl);
+  _pool.on("error", (err) => {
+    console.error("Database pool error:", err.message);
+  });
+  return _pool;
 }
 
-export const pool = buildSupabasePool(supabaseUrl);
+export function getPool(): pg.Pool {
+  return initPool();
+}
 
-pool.on("error", (err) => {
-  console.error("Database pool error:", err.message);
+export function getDb() {
+  if (_db) return _db;
+  _db = drizzle(initPool(), { schema });
+  return _db;
+}
+
+export const pool = new Proxy({} as pg.Pool, {
+  get(_target, prop, receiver) {
+    const realPool = initPool();
+    const value = Reflect.get(realPool, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(realPool);
+    }
+    return value;
+  },
 });
 
-export const db = drizzle(pool, { schema });
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop, receiver) {
+    const realDb = getDb();
+    const value = Reflect.get(realDb, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(realDb);
+    }
+    return value;
+  },
+});

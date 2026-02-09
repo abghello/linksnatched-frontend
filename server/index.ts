@@ -1,6 +1,4 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
@@ -65,7 +63,9 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    const { registerRoutes } = await import("./routes");
     await registerRoutes(httpServer, app);
+    console.log("Routes registered successfully");
   } catch (err) {
     console.error("Failed to register routes:", err);
   }
@@ -84,6 +84,7 @@ app.use((req, res, next) => {
   });
 
   if (process.env.NODE_ENV === "production") {
+    const { serveStatic } = await import("./static");
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");

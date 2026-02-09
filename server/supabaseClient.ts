@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 function resolveSupabaseUrl(): string {
   const provided = process.env.SUPABASE_URL || "";
@@ -19,11 +19,29 @@ function resolveSupabaseUrl(): string {
   );
 }
 
-const supabaseUrl = resolveSupabaseUrl();
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+let _supabase: SupabaseClient | null = null;
 
-if (!supabaseAnonKey) {
-  throw new Error("SUPABASE_ANON_KEY is required");
+function initSupabase(): SupabaseClient {
+  if (_supabase) return _supabase;
+
+  const supabaseUrl = resolveSupabaseUrl();
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseAnonKey) {
+    throw new Error("SUPABASE_ANON_KEY is required");
+  }
+
+  _supabase = createClient(supabaseUrl, supabaseAnonKey);
+  return _supabase;
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    const real = initSupabase();
+    const value = Reflect.get(real, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(real);
+    }
+    return value;
+  },
+});
